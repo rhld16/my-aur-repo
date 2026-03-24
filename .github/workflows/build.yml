@@ -1,0 +1,56 @@
+name: Build AUR packages
+
+on:
+  push:
+    paths: [packages.txt]
+  schedule:
+    - cron: '0 3 * * 0'   # weekly, Sunday 3am
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux/archlinux:base-devel
+      options: --privileged
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup build environment
+        run: |
+          # Pacman setup
+          pacman-key --init
+          pacman -Syu --noconfirm git sudo
+
+          # Create a non-root build user (makepkg refuses to run as root)
+          useradd -m builder
+          echo "builder ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+
+      - name: Build packages
+        run: |
+          mkdir -p repo
+          while IFS= read -r pkg || [[ -n "$pkg" ]]; do
+            [[ -z "$pkg" || "$pkg" == \#* ]] && continue
+            echo "==> Building $pkg"
+            
+            su builder -c "
+              git clone https://aur.archlinux.org/${pkg}.git /tmp/${pkg}
+              cd /tmp/${pkg}
+              makepkg -s --noconfirm --noprogressbar
+            "
+            
+            cp /tmp/${pkg}/*.pkg.tar.zst repo/ 2>/dev/null || echo "No package built for $pkg"
+          done < packages.txt
+
+      - name: Create pacman repo database
+        run: |
+          cd repo
+          repo-add myrepo.db.tar.gz *.pkg.tar.zst
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./repo
+          keep_files: false   # set true if you want to accumulate old versions
