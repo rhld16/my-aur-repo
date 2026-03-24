@@ -2,7 +2,8 @@ name: Build AUR packages
 
 on:
   push:
-    paths: [packages.txt]
+    branches:
+      - 'main'
   schedule:
     - cron: '0 3 * * 0'
   workflow_dispatch:
@@ -38,8 +39,8 @@ jobs:
 
       - name: Build packages
         run: |
-          mkdir -p /home/builder/out
-          mkdir -p repo
+          mkdir -p /home/builder/out repo
+          chown -R builder:builder /home/builder/out
 
           while IFS= read -r pkg || [[ -n "$pkg" ]]; do
             [[ -z "$pkg" || "$pkg" == \#* ]] && continue
