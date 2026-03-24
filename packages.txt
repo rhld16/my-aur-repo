@@ -1,3 +1,0 @@
-uxplay
-alacritty-git
-localsend
