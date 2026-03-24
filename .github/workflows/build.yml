@@ -20,20 +20,20 @@ jobs:
       - name: Setup build environment
         run: |
           pacman-key --init
-          pacman -Syu --noconfirm git sudo
+          pacman -Syu --noconfirm git sudo rust cargo
 
           useradd -m builder
           echo "builder ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
 
-          # Remove rust to avoid conflict with rustup
-          pacman -Rdd --noconfirm rust || true
-
-          # Bootstrap paru so it can resolve AUR dependencies
+          # Build paru from source so it links against the current libalpm
           su builder -c "
-            git clone https://aur.archlinux.org/paru-bin.git /tmp/paru-bin
-            cd /tmp/paru-bin
+            git clone https://aur.archlinux.org/paru.git /tmp/paru
+            cd /tmp/paru
             makepkg -si --noconfirm
           "
+
+          # Remove rust now so packages that need rustup aren't blocked
+          pacman -Rdd --noconfirm rust || true
 
       - name: Build packages
         run: |
