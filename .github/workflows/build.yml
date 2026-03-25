@@ -19,14 +19,14 @@ jobs:
       options: --user root
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Cache paru package
-        uses: actions/cache@v3
+        uses: actions/cache@v5
         id: cache-paru
         with:
           path: /tmp/paru/*.pkg.tar.zst
-          key: paru-${{ hashFiles('packages.txt') }}-${{ hashFiles('.github/workflows/build.yml') }}
+          key: paru-${{ hashFiles('.github/workflows/build.yml') }}
 
       - name: Setup build environment
         run: |
@@ -35,13 +35,19 @@ jobs:
           useradd -m builder
           mkdir -p /home/builder/out /home/builder/repo
           chown -R builder:builder /home/builder
-    
+
+          echo "builder ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+
           if [ -d /tmp/paru ] && ls /tmp/paru/*.pkg.tar.zst 1>/dev/null 2>&1; then
+            # Install from cached package
             pacman -U --noconfirm /tmp/paru/*.pkg.tar.zst
           else
+            # Build paru from source
             su builder -c "git clone https://aur.archlinux.org/paru.git /tmp/paru"
             su builder -c "cd /tmp/paru && makepkg -si --noconfirm"
           fi
+
+          # Remove rust to free space (optional)
           pacman -Rdd --noconfirm rust || true
 
       - name: Build packages
@@ -57,8 +63,8 @@ jobs:
           repo-add myrepo.db.tar.gz *.pkg.tar.zst
 
       - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
+        uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./repo
+          publish_dir: /home/builder/repo
           keep_files: false
