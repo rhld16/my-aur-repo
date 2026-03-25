@@ -16,32 +16,45 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: archlinux/archlinux:base-devel
-      options: --privileged
+      options: --user root
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Cache paru package
+        uses: actions/cache@v3
+        id: cache-paru
+        with:
+          path: /tmp/paru/*.pkg.tar.zst
+          key: paru-${{ hashFiles('packages.txt') }}-${{ hashFiles('.github/workflows/build.yml') }}
 
       - name: Setup build environment
         run: |
           pacman-key --init
           pacman -Syu --noconfirm git sudo rust cargo
           useradd -m builder
-          echo "builder ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
-          su builder -c "git clone https://aur.archlinux.org/paru.git /tmp/paru && cd /tmp/paru && makepkg -si --noconfirm"
+          mkdir -p /home/builder/out /home/builder/repo
+          chown -R builder:builder /home/builder
+    
+          if [ -d /tmp/paru ] && ls /tmp/paru/*.pkg.tar.zst 1>/dev/null 2>&1; then
+            pacman -U --noconfirm /tmp/paru/*.pkg.tar.zst
+          else
+            su builder -c "git clone https://aur.archlinux.org/paru.git /tmp/paru"
+            su builder -c "cd /tmp/paru && makepkg -si --noconfirm"
+          fi
           pacman -Rdd --noconfirm rust || true
 
       - name: Build packages
         run: |
-          mkdir -p /home/builder/out repo
-          chown builder:builder /home/builder/out
-          while IFS= read -r pkg || [[ -n "$pkg" ]]; do
-            [[ -z "$pkg" || "$pkg" == \#* ]] && continue
-            pacman -Rdd --noconfirm rust 2>/dev/null || true
-            su builder -c "OPTIONS=(!debug strip) PKGDEST=~/out paru -S --noconfirm --noprogressbar --removemake --cleanafter $pkg" \
-              || echo "WARNING: failed to build $pkg, skipping"
-          done < packages.txt
-          find /home/builder/out -name "*.pkg.tar.zst" -exec cp {} repo/ \;
-          cd repo && repo-add myrepo.db.tar.gz *.pkg.tar.zst
+          set -e
+          PACKAGES=$(cat packages.txt | grep -v '^#' | tr '\n' ' ')
+          for pkg in $PACKAGES; do
+            echo "Building $pkg"
+            su builder -c "OPTIONS=(!debug strip) PKGDEST=~/out paru -S --noconfirm --noprogressbar --removemake --cleanafter $pkg"
+          done
+          find /home/builder/out -name "*.pkg.tar.zst" -exec cp {} /home/builder/repo/ \;
+          cd /home/builder/repo
+          repo-add myrepo.db.tar.gz *.pkg.tar.zst
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
