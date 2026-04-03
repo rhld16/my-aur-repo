@@ -1,4 +1,4 @@
 uxplay
 alacritty-git
 localsend
-clementine
+gtkpod
