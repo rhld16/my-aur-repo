@@ -1,4 +1,3 @@
 uxplay
 alacritty-git
 localsend
-gtkpod
