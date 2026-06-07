@@ -2,3 +2,4 @@ uxplay
 localsend
 python-pssh
 ktailctl
+wireshark-qt
