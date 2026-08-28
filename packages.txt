@@ -3,3 +3,4 @@ localsend
 python-pssh
 ktailctl
 wireshark-qt
+f3
