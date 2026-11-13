@@ -1,5 +1,5 @@
-libimobiledevice-glue-git
 libplist-git
+libimobiledevice-glue-git
 libimobiledevice-git
 libirecovery-git
 libtatsu-git
