@@ -1,6 +1,6 @@
+idevicerestore-git
 uxplay
 localsend
 python-pssh
 ktailctl
 wireshark-qt
-idevicerestore-git
